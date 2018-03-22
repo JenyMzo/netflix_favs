@@ -27,13 +27,36 @@ We are going to use [MongoLab](https://mlab.com) to host our database, so we don
 - On the package.json we are going to add the following script ```"start": "nodemon server.js"```
 - This will be our initial server.js
 ```js
-const express = require('express');
-const app = express();
-const port = process.env.PORT || 8081;
+'use strict';
 
-app.listen(port);
+const Hapi = require("hapi");
+const port = process.env.PORT || 3000;
 
-console.log('RESTful API server started on: ' + port);
+const server = new Hapi.Server({
+    host: "localhost",
+    port: port
+});
+
+server.route({
+    method: "GET",
+    path: "/",
+    handler: (request, response) => {
+        return "Hello World";
+    }
+});
+
+const start = async () => {
+    try {
+        await server.start();
+    }
+    catch (err) {
+        console.log(err);
+        process.exit(1);
+    }
+    console.log('Server running at:', server.info.uri);
+};
+
+start();
 ```
 - On ther terminal ```npm run start``` so this will start the server
 
@@ -44,114 +67,70 @@ console.log('RESTful API server started on: ' + port);
 - Our speaker model should look like this:
 ```js
 'use strict';
+
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-// const Talk = mongoose.model('Talk');
 
-const SpeakerSchema = new Schema({
+const MovieSchema = new Schema({
     name: {
         type: String,
-        required: 'Please enter the name of the speaker'
-    },
-    email: {
-        type: String,
         unique : true,
-        required: 'Please enter the email of the speaker'
-    },
-    twitterUser: {
-        type: String,
-        required: 'Please enter the twitter username of the speaker'
+        required: 'Please enter the name of the movie'
     },
     description: {
         type: String,
-        required: 'Please enter a description for the speaker'
+        required: 'Please enter the description of the movie'
     },
-    size: {
+    coverUrl: {
         type: String,
-        required: 'Please enter the t-shirt size of the speaker'
+        required: 'Please enter the cover url of the movie'
     },
-    created_date: {
-        type: Date,
-        default: Date.now
+    review: {
+        type: String,
+        required: 'Please enter the review of the movie'
     }
 });
 
-module.exports = mongoose.model('Speaker', SpeakerSchema);
-```
-- Our talk model should look like this:
-```js
-'use strict';
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
-const Speaker = mongoose.model('Speaker');
-
-const TalkSchema = new Schema({
-    title: {
-        type: String,
-        required: 'Please enter a title for the talk'
-    },
-    duration: {
-        type: Number,
-        required: 'Please enter the duration for the talk'
-    },
-    description: {
-        type: String,
-        required: 'Please enter a description for the talk'
-    },
-    sources: {
-        type: String,
-        required: 'Please enter the required sources for the talk'
-    },
-    createdDate: {
-        type: Date,
-        default: Date.now
-    },
-    status: {
-        type: [{
-            type: String,
-            enum: ['pending', 'done']
-        }],
-        default: ['pending']
-    },
-    speakers: [{ type: Schema.Types.ObjectId, ref: 'Speaker' }]
-});
-
-module.exports = mongoose.model('Talk', TalkSchema);
+module.exports = mongoose.model('Movie', MovieSchema);
 ```
 ## Setting up the routes
 - Our routes file should look like this:
 ```js
 'use strict';
 
-module.exports = function (app) {
-    const talks = require('../controllers/talksController.js');
-    const speakers = require('../controllers/speakersController.js');
+module.exports = function (server) {
+  const movies = require('../controllers/moviesController.js');
 
-    // talks Routes
-    app.route('/talks')
-        .get(talks.list_all_talks)
-        .post(talks.create_a_talk);
+  server.route({
+    method: 'GET',
+    path: '/movies',
+    handler: movies.list_all_movies
+  });
 
-    app.route('/talks/:talkId')
-        .get(talks.get_a_talk)
-        .put(talks.update_a_talk)
-        .delete(talks.delete_a_talk);
+  server.route({
+    method: 'POST',
+    path: '/movies',
+    handler: movies.create_a_movie
+  });
 
-    // speakers Routes
-    app.route('/speakers')
-        .get(speakers.list_all_speakers)
-        .post(speakers.create_a_speaker);
+  server.route({
+    method: 'GET',
+    path: '/movies/{id}',
+    handler: movies.get_a_movie
+  });
 
-    app.route('/speakers/:speakerId')
-        .get(speakers.get_a_speaker)
-        .put(speakers.update_a_speaker)
-        .delete(speakers.delete_a_speaker);
+  server.route({
+    method: 'PUT',
+    path: '/movies/{id}',
+    handler: movies.update_a_movie
+  });
 
-    app.get('*', function (req, res) {
-        console.log('res', res.statusCode);
-        return res.status(404).send({ url: req.originalUrl + 'not found' });
-    });
-};
+  server.route({
+    method: 'DELETE',
+    path: '/movies/{id}',
+    handler: movies.delete_a_movie
+  });
+}
 ```
 - Require routes.js on server.js
 ```js
@@ -159,157 +138,123 @@ const routes = require('./api/routes/routes.js');
 ```
 - Call the function on server.js
 ```js
-routes(app);
+routes(server);
 ```
 
-## Creating Controllers
+## Creating Controller
 - Our speakers controller should look like this:
 ```js
 'use strict';
 
-var mongoose = require('mongoose'),
-    Speaker = mongoose.model('Speaker'),
-    Talk = mongoose.model('Talk');
+const mongoose = require('mongoose');
+const Movie = mongoose.model('Movie');
 
-exports.list_all_speakers = function (req, res) {
-    Speaker.find({}, function (err, speaker) {
-        if (err) {
-            return res.send(err);
-        }
-        return res.json(speaker);
-    });
+exports.list_all_movies = function (req, res) {
+  return Movie.find({}).exec().then((movie) => {
+
+    return { movies: movie };
+
+  }).catch((err) => {
+
+    return { err: err };
+
+  });
 };
 
-exports.create_a_speaker = function (req, res) {
-    var new_speaker = new Speaker(req.body);
-    new_speaker.save(function (err, speaker) {
-        if (err) {
-            return res.send(err);
-        }
-        return res.json(speaker);
-    });
-};
+exports.create_a_movie = function (req, res) {
 
-exports.get_a_speaker = function (req, res) {
-    Speaker.findById(req.params.speakerId, function (err, speaker) {
-        if (err) {
-            res.send(err);
-        }
-        return res.json(speaker);
-    });
-};
+  const movieData = {
+    name: req.payload.name,
+    description: req.payload.description,
+    coverUrl: req.payload.coverUrl,
+    review: req.payload.review
+  };
 
-exports.update_a_speaker = function (req, res) {
-    Speaker.findOneAndUpdate({
-        _id: req.params.speakerId
-    },
-        req.body,
-        {
-            new: true
-        },
-        function (err, speaker) {
-            if (err)
-                res.send(err);
-            res.json(speaker);
-        });
-};
+  return Movie.create(movieData).then((movie) => {
 
-exports.delete_a_speaker = function (req, res) {
-    Speaker.remove({
-        _id: req.params.speakerId
-    }, function (err, speaker) {
-        if (err)
-            res.send(err);
-        res.json({
-            message: 'Speaker successfully deleted'
-        });
-    });
-};
-```
-- Our talks controller should look like this:
-```js
-'use strict';
+    return { message: "Movie added successfully", movie: movie };
 
-const mongoose = require('mongoose'),
-    Talk = mongoose.model('Talk'),
-    Speaker = mongoose.model('Speaker');
+ }).catch((err) => {
 
-exports.list_all_talks = function (req, res) {
-    Talk.find({}).
-        populate('speakers').
-        exec( function (err, talk) {
-        if (err) {
-            return res.send(err);
-        }
-        return res.json(talk);
-    });
-};
+   return { err: err };
 
-exports.create_a_talk = function (req, res) {
-    var new_talk = new Talk(req.body);
-    new_talk.save(function (err, talk) {
-        if (err) {
-            return res.send(err);
-        }
-        return res.json(talk);
-    });
-};
+ });
+}
 
-exports.get_a_talk = function (req, res) {
-    Talk.findById(req.params.talkId).
-        populate('speakers').
-        exec(function (err, talk) {
-            if (err) {
-                return res.send(err);
-            }
-            return res.json(talk);
-        });
-};
+exports.get_a_movie = (req, h) => {
 
-exports.update_a_talk = function (req, res) {
-    Talk.findOneAndUpdate({
-        _id: req.params.talkId
-    },
-        req.body,
-        {
-            new: true
-        },
-        function (err, talk) {
-            if (err) {
-                return res.send(err);
-            }
-            return res.json(talk);
-        });
-};
+  return Movie.findById(req.params.id).exec().then((movie) => {
 
-exports.delete_a_talk = function (req, res) {
-    Talk.remove({
-        _id: req.params.talkId
-    }, function (err, talk) {
-        if (err) {
-            return res.send(err);
-        }
-        return res.json({
-            message: 'Talk successfully deleted'
-        });
-    });
-};
+    if(!movie) return { message: 'Movie not Found' };
+
+    return { movie: movie };
+
+  }).catch((err) => {
+
+    return { err: err };
+
+  });
+}
+
+exports.update_a_movie = (req, h) => {
+
+  return Movie.findById(req.params.id).exec().then((movie) => {
+    if (!movie) return { err: 'movie not found' };
+    let movieData = movie;
+    movieData.name = !!req.payload.name ? req.payload.name : movie.name;
+    movieData.description = !!req.payload.description ? req.payload.description : movie.name;
+    movieData.coverUrl = !!req.payload.coverUrl ? req.payload.coverUrl : movie.coverUrl;
+    movieData.review = !!req.payload.review ? req.payload.review : movie.review;
+    movie.save(movieData);
+
+  }).then((data) => {
+
+      return { message: "Movie data updated successfully" };
+
+  }).catch((err) => {
+
+      return { err: err };
+
+  });
+}
+
+exports.delete_a_movie = (req, h) => {
+
+  return Movie.findById(req.params.id).exec().then((movie) => {
+
+    if (!movie) return { message: 'Movie not found' };
+
+    movie.remove(movie);
+
+  }).then((data) => {
+
+    return { success: true };
+
+  }).catch((err) => {
+    return { dberror: err };
+  });
+}
 ```
 ## Conecting to the database
 As mentioned before, we are going to use [MongoLab](https://mlab.com) to host our database, in fact it's already created, so let's connect :)
 - Create a connection.js file
 - Inside that file require mongoose, speaker and talk models
 ```js
+'use strict';
+
 const mongoose = require('mongoose');
 const Speaker = require('./api/models/speakerModel');
-const Talk = require('./api/models/talkModel');
+const Movie = require('./api/models/movieModel');
 ```
 - Connect to de database
 ```js
-module.exports = () => {
-    mongoose.Promise = global.Promise;
-    mongoose.connect('mongodb://medjs:medjs2017@ds161016.mlab.com:61016/talks');
-}
+Mongoose.connect('mongodb://medjs:medjs2017@ds121089.mlab.com:21089/netflix_movies');
+let db = Mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error'));
+db.once('open', function callback() {
+    console.log('Connection with database succeeded.');
+});
+exports.db = db;
 ```
 - Require connection.js on server.js
 ```js
@@ -319,42 +264,34 @@ const connection = require('./connection.js');
 ```js
 connection();
 ```
-## Creating Middlewares
-We are going to use body-parser, a middleware module that extracts the entire body of an incoming request stream and exposes it on req.body.
-- Let's create a middlewares.js file like this:
-```js
-'use strict';
-
-const bodyParser = require('body-parser');
-
-module.exports = function (app) {
-    app.use(bodyParser.urlencoded({ extended: true }));
-    app.use(bodyParser.json());
-};
-```
-- Require middlewares.js on server.js
-```js
-const middlewares = require('./middlewares.js');
-```
-- Call the function on server.js
-```js
-middlewares(app);
-```
 ## Consolidating server.js
 Finally the server.js file should look like this:
 ```js
+'use strict';
+
 const connection = require('./connection.js');
-const express = require('express');
-const app = express();
-const middlewares = require('./middlewares.js');
-const port = process.env.PORT || 8081;
+const Hapi = require("hapi");
+const port = process.env.PORT || 3000;
 const routes = require('./api/routes/routes.js');
 
-connection();
-middlewares(app);
-routes(app);
-app.listen(port);
+const server = new Hapi.Server({
+    host: "localhost",
+    port: port
+});
 
-console.log('RESTful API server started on: ' + port);
+connection.db;
+routes(server);
+
+const start = async () => {
+    try {
+        await server.start();
+    }
+    catch (err) {
+        console.log(err);
+        process.exit(1);
+    }
+    console.log('Server running at:', server.info.uri);
+};
+
+start();
 ```
-

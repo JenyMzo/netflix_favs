@@ -1,4 +1,5 @@
 'use strict';
+
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -20,10 +21,6 @@ const MovieSchema = new Schema({
         type: String,
         required: 'Please enter the review of the movie'
     }
-    // created_date: {
-    //     type: Date,
-    //     default: Date.now
-    // }
 });
 
 module.exports = mongoose.model('Movie', MovieSchema);

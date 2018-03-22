@@ -12,7 +12,6 @@ const server = new Hapi.Server({
 
 connection.db;
 routes(server);
-// server.listen(port);
 
 // server.route({
 //     method: "GET",

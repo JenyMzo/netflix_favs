@@ -19,7 +19,6 @@
   "homepage": "https://github.com/JenyMzo/netflix_favs#readme",
   "dependencies": {
     "hapi": "^17.2.3",
-    "joi": "^13.1.2",
     "mongoose": "^5.0.11"
   },
   "devDependencies": {

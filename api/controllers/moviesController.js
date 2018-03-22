@@ -1,7 +1,7 @@
 'use strict';
 
-var mongoose = require('mongoose'),
-  Movie = mongoose.model('Movie')
+const mongoose = require('mongoose');
+const Movie = mongoose.model('Movie');
 
 exports.list_all_movies = function (req, res) {
   return Movie.find({}).exec().then((movie) => {
@@ -36,7 +36,6 @@ exports.create_a_movie = function (req, res) {
 }
 
 exports.get_a_movie = (req, h) => {
-  console.log("req.params", req.params);
 
   return Movie.findById(req.params.id).exec().then((movie) => {
 
@@ -54,15 +53,12 @@ exports.get_a_movie = (req, h) => {
 exports.update_a_movie = (req, h) => {
 
   return Movie.findById(req.params.id).exec().then((movie) => {
-    console.log("movie", movie);
     if (!movie) return { err: 'movie not found' };
     let movieData = movie;
     movieData.name = !!req.payload.name ? req.payload.name : movie.name;
     movieData.description = !!req.payload.description ? req.payload.description : movie.name;
     movieData.coverUrl = !!req.payload.coverUrl ? req.payload.coverUrl : movie.coverUrl;
     movieData.review = !!req.payload.review ? req.payload.review : movie.review;
-
-    // console.log(movieData);
     movie.save(movieData);
 
   }).then((data) => {
@@ -80,7 +76,6 @@ exports.delete_a_movie = (req, h) => {
 
   return Movie.findById(req.params.id).exec().then((movie) => {
 
-    // if (err) retcvurn { dberror: err };
     if (!movie) return { message: 'Movie not found' };
 
     movie.remove(movie);
